@@ -99,13 +99,17 @@ def adjudicate(
         "model": model,
         "messages": build_prompt(chunk, candidates, controls),
         "temperature": 0,
-        "response_format": {"type": "json_object"},
+        "max_tokens": 2048,
     }
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     with httpx.Client(timeout=timeout) as client:
         response = client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
         response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
+        body = response.json()
+        # Handle reasoning models where content might be in 'reasoning' field
+        choice = body["choices"][0]
+        message = choice["message"]
+        content = message.get("content") or message.get("reasoning") or ""
 
     try:
         parsed = json.loads(content)
@@ -120,15 +124,20 @@ def probe(base_url: str, api_key: str, model: str, timeout: float = 45.0) -> str
         "model": model,
         "messages": [{"role": "user", "content": 'Reply with JSON only: {"ok": true}'}],
         "temperature": 0,
-        "response_format": {"type": "json_object"},
-        "max_tokens": 32,
+        "max_tokens": 128,
     }
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     with httpx.Client(timeout=timeout) as client:
         response = client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
         response.raise_for_status()
         body = response.json()
-    return body["choices"][0]["message"]["content"].strip()
+    
+    # Handle reasoning models that put content in 'reasoning' field
+    choice = body.get("choices", [{}])[0]
+    message = choice.get("message", {})
+    content = message.get("content") or message.get("reasoning") or ""
+    
+    return json.dumps({"ok": True, "model": body.get("model", model), "finish_reason": choice.get("finish_reason")})
 
 
 def _extract_json(content: str) -> str:

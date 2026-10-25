@@ -70,55 +70,58 @@ PII = re.compile(r"(email|e_mail|ssn|social_security|dob|date_of_birth|phone|add
 
 
 def detect(chunk: Chunk, controls: list[Control]) -> list[Candidate]:
-    """Run every applicable detector over one chunk."""
-    by_detector: dict[str, Control] = {c.detector: c for c in controls}
+    """Run every applicable detector over one chunk.
+
+    A detector maps to *many* controls - the same log statement breaches GDPR
+    Art. 32 and DPDP S.8(5) at once. One candidate is emitted per (control, line),
+    so each obligation is adjudicated and rejected independently.
+    """
+    by_detector: dict[str, list[Control]] = {}
+    for control in controls:
+        by_detector.setdefault(control.detector, []).append(control)
     lines = chunk.text.splitlines()
     found: list[Candidate] = []
 
-    def add(control: Control, idx: int, hint: str, span: int = 1) -> None:
+    def add(detector: str, idx: int, hint: str, span: int = 1) -> None:
         start = chunk.start + idx
         end = min(start + span - 1, chunk.end)
-        found.append(
-            Candidate(
-                control_id=control.id,
-                framework=control.framework,
-                control=control.control,
-                detector=control.detector,
-                path=chunk.path,
-                symbol=chunk.symbol,
-                start=start,
-                end=end,
-                hint=hint,
-                evidence=lines[idx].strip()[:300],
+        for control in by_detector.get(detector, []):
+            found.append(
+                Candidate(
+                    control_id=control.id,
+                    framework=control.framework,
+                    control=control.control,
+                    detector=control.detector,
+                    path=chunk.path,
+                    symbol=chunk.symbol,
+                    start=start,
+                    end=end,
+                    hint=hint,
+                    evidence=lines[idx].strip()[:300],
+                )
             )
-        )
 
     for idx, line in enumerate(lines):
         window = "\n".join(lines[idx: idx + 3])
 
-        control = by_detector.get("secrets-in-logs")
         # Single line on purpose: a 3-line window spills into the following
         # statement and produces phantom hits on safe code.
-        if control and LOG_CALL.search(line) and INTERPOLATED_SENSITIVE.search(line):
-            add(control, idx, "credential or personal data appears inside a log statement", 1)
+        if "secrets-in-logs" in by_detector and LOG_CALL.search(line) and INTERPOLATED_SENSITIVE.search(line):
+            add("secrets-in-logs", idx, "credential or personal data appears inside a log statement", 1)
 
-        control = by_detector.get("sql-concat")
-        if control and (NOSQL_WHERE.search(line) or (SQL_VERB.search(line) and CONCAT.search(line))):
-            add(control, idx, "query text is assembled from runtime values", 3)
+        if "sql-concat" in by_detector and (NOSQL_WHERE.search(line) or (SQL_VERB.search(line) and CONCAT.search(line))):
+            add("sql-concat", idx, "query text is assembled from runtime values", 3)
 
-        control = by_detector.get("missing-authz")
         route = ROUTE.search(line)
-        if control and route and PRIVILEGED_PATH.search(route.group(1)):
+        if "missing-authz" in by_detector and route and PRIVILEGED_PATH.search(route.group(1)):
             body = "\n".join(lines[idx: idx + 15])
             if not AUTH_HINT.search(body):
-                add(control, idx, "privileged route declared without an authorisation check", 15)
+                add("missing-authz", idx, "privileged route declared without an authorisation check", 15)
 
-        control = by_detector.get("weak-crypto")
-        if control and WEAK_HASH.search(line):
-            add(control, idx, "weak hash algorithm in use - check what is being hashed", 3)
+        if "weak-crypto" in by_detector and WEAK_HASH.search(line):
+            add("weak-crypto", idx, "weak hash algorithm in use - check what is being hashed", 3)
 
-        control = by_detector.get("pii-exfil")
-        if control and OUTBOUND.search(line) and PII.search("\n".join(lines[idx: idx + 6])):
-            add(control, idx, "outbound request carries personal data", 6)
+        if "pii-exfil" in by_detector and OUTBOUND.search(line) and PII.search("\n".join(lines[idx: idx + 6])):
+            add("pii-exfil", idx, "outbound request carries personal data", 6)
 
     return found

@@ -18,9 +18,9 @@ jobs:
       # No GPU, no network, no Temporal server: the model is behind LLMConfig.
       - run: python tests/smoke.py
       - name: audit the vulnerable tree
-        run: MOCK_LLM=1 python audit.py run --path fixtures/bad --frameworks SOC2,HIPAA,GDPR
+        run: MOCK_LLM=1 python audit.py run --path fixtures/bad --frameworks DPDP,SOC2,HIPAA,GDPR
       - name: audit the remediated tree
-        run: MOCK_LLM=1 python audit.py run --path fixtures/fixed --frameworks SOC2,HIPAA,GDPR
+        run: MOCK_LLM=1 python audit.py run --path fixtures/fixed --frameworks DPDP,SOC2,HIPAA,GDPR
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Start (or resume) a durable audit.
 
-    python -m workflows.start --path fixtures/bad --frameworks SOC2,HIPAA,GDPR --slow 2
+    python -m workflows.start --path fixtures/bad --frameworks DPDP,SOC2 --slow 2
 
 Workflow ID is derived from repo + commit, so starting the same audit twice
 attaches to the running one instead of duplicating work.
@@ -29,12 +29,18 @@ ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default="fixtures/bad")
-    parser.add_argument("--frameworks", default="SOC2,HIPAA,GDPR")
+    parser.add_argument("--frameworks", default="DPDP,SOC2")
+    parser.add_argument("--include", default="", help="only paths containing these substrings, e.g. src,api")
     parser.add_argument("--slow", type=float, default=0.0, help="seconds per file (for demos)")
     parser.add_argument("--max-files", type=int, default=0)
     args = parser.parse_args()
 
-    root = Path(args.path).resolve()
+    if args.max_files:
+        os.environ["MAX_FILES"] = str(args.max_files)
+    if args.include:
+        os.environ["INCLUDE"] = args.include
+
+    root = Path(args.path).expanduser().resolve()
     commit = head_commit(root)
     workflow_id = f"audit:{root.name}:{commit[:8]}"
 

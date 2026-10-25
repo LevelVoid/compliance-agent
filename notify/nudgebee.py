@@ -6,6 +6,9 @@ dumb: one HTTP call, no state, retry-safe.
 
 Set NUDGEBEE_MODE=webhook and NUDGEBEE_WEBHOOK_URL to enable. When their endpoint
 shape differs from the contract below, only this file changes.
+
+One event per **defect**, not per obligation: a single bad line that breaches GDPR
+and DPDP must open one ticket carrying two citations, not two tickets.
 """
 
 from __future__ import annotations
@@ -24,22 +27,18 @@ class NudgeBeeNotifier:
         self._url = webhook_url
         self._timeout = timeout
 
-    def _event(self, repo: str, summary: dict, finding: dict) -> dict:
-        key = f"{finding['finding_id']}:{repo}"
+    def _event(self, repo: str, summary: dict, defect: dict) -> dict:
+        key = f"{defect['defect_id']}:{repo}"
         return {
             "event_id": hashlib.sha256(key.encode()).hexdigest()[:24],
             "source": "geo-compliance-agent",
-            "type": "compliance.finding",
+            "type": "compliance.defect",
             "repo": repo,
-            "severity": finding["severity"],
-            "framework": finding["framework"],
-            "control": finding["control"],
-            "control_id": finding["control_id"],
-            "title": finding["title"],
-            "location": f"{finding['path']}:{finding['line_start']}",
-            "evidence": finding["evidence"],
-            "suggested_fix": finding.get("fix") or finding.get("remediation"),
-            "exposure": finding["exposure"],
+            "severity": defect["severity"],
+            "location": f"{defect['path']}:{defect['line_start']}",
+            "evidence": defect["evidence"],
+            "suggested_fix": defect.get("fix", ""),
+            "obligations": defect.get("obligations", []),
             "audit": {
                 "audit_id": summary.get("audit_id"),
                 "score": summary.get("score"),
@@ -50,16 +49,16 @@ class NudgeBeeNotifier:
         }
 
     async def send(self, *, repo: str, summary: dict) -> dict:
-        findings = sorted(
-            summary.get("findings", []),
-            key=lambda f: SEVERITY_ORDER.get(f["severity"], 9),
+        defects = sorted(
+            summary.get("defects", []),
+            key=lambda d: (SEVERITY_ORDER.get(d["severity"], 9), d["path"]),
         )
         payload = {
             "source": "geo-compliance-agent",
             "repo": repo,
             "score": summary.get("score"),
             "verdict": summary.get("verdict"),
-            "events": [self._event(repo, summary, f) for f in findings],
+            "events": [self._event(repo, summary, defect) for defect in defects],
         }
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(self._url, json=payload)

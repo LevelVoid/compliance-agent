@@ -94,7 +94,12 @@ def _llm():
 async def discover_files(state: AuditState) -> list[dict]:
     from pipeline.snapshot import discover
 
-    refs = discover(Path(state.root), max_files=int(os.environ.get("MAX_FILES", "12")))
+    include = [part.strip() for part in os.environ.get("INCLUDE", "").split(",") if part.strip()]
+    refs = discover(
+        Path(state.root),
+        max_files=int(os.environ.get("MAX_FILES", "12")),
+        include=include or None,
+    )
     return [asdict(ref) for ref in refs]
 
 
@@ -220,6 +225,7 @@ async def finalise(state: AuditState) -> dict:
         "score": payload["score"],
         "verdict": payload["verdict"],
         "findings": payload["findings"],
+        "defects": payload["defects"],
         "report_md": str(out_dir / f"report-{state.audit_id}.md"),
     }
 

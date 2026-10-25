@@ -1,11 +1,9 @@
 """Slack incoming webhook. The visual beat: a real alert with the file, the
-control, and the patch, in the channel the team already reads."""
+controls, and the patch, in the channel the team already reads."""
 
 from __future__ import annotations
 
 import httpx
-
-from pipeline.score import WEIGHTS  # noqa: F401  (kept for weight-aware headers)
 
 
 class SlackNotifier:
@@ -16,22 +14,24 @@ class SlackNotifier:
         self._timeout = timeout
 
     async def send(self, *, repo: str, summary: dict) -> dict:
-        findings = summary.get("findings", [])
-        head = findings[:5]
+        defects = summary.get("defects", [])
+        head = defects[:5]
         lines = [
             f"*{repo}* — {summary.get('score')}/100 · {summary.get('verdict')}",
-            f"{len(findings)} confirmed violation(s)",
+            f"{len(defects)} confirmed defect(s)",
             "",
         ]
-        for finding in head:
+        for defect in head:
+            citations = ", ".join(
+                f"{o['framework']} {o['control']}" for o in defect.get("obligations", [])
+            )
             lines += [
-                f"*{finding['framework']} {finding['control']}* · {finding['severity'].upper()}"
-                f" · `{finding['path']}:{finding['line_start']}`",
-                f"_{finding['title']}_",
-                f"```{finding['evidence']}```",
+                f"*{defect['severity'].upper()}* · `{defect['path']}:{defect['line_start']}`",
+                f"_{citations}_",
+                f"```{defect['evidence']}```",
             ]
-            if finding.get("fix"):
-                lines.append(f"Proposed: `{finding['fix'][:180]}`")
+            if defect.get("fix"):
+                lines.append(f"Proposed: `{defect['fix'][:180]}`")
             lines.append("")
 
         payload = {

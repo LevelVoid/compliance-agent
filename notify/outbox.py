@@ -21,9 +21,9 @@ class OutboxNotifier:
             "repo": repo,
             "score": summary.get("score"),
             "verdict": summary.get("verdict"),
-            "findings": summary.get("findings", []),
+            "defects": summary.get("defects", []),
         }
         with self._path.open("a") as handle:
             handle.write(json.dumps(record) + "\n")
-        return {"transport": self.name, "delivered": len(record["findings"]),
+        return {"transport": self.name, "delivered": len(record["defects"]),
                 "path": str(self._path)}

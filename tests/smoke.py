@@ -92,6 +92,47 @@ def test_framework_selection_scopes_evaluation() -> None:
     soc2 = select(controls, ["SOC2"], "js")
     assert soc2 and all(control.framework == "SOC2" for control in soc2)
     assert select(controls, ["SOC2"], "js") == select(controls, ["SOC2"], "ts")
+    dpdp = select(controls, ["DPDP"], "py")
+    assert dpdp and all(control.framework == "DPDP" for control in dpdp)
+    ids = {c.id for c in load_controls()}
+    assert "DPDP-S8(5)-secrets-in-logs" in ids
+
+
+def test_one_defect_carries_every_obligation() -> None:
+    """A single bad line breaches GDPR and DPDP at once: one defect, two citations."""
+    report = asyncio.run(
+        audit_repo(ROOT / "fixtures" / "bad", repo_name="bad",
+                   frameworks=["GDPR", "DPDP"], llm=MOCK)
+    )
+    log_defects = [d for d in report.defects if d.path == "src/auth.py"]
+    assert len(log_defects) == 1, log_defects
+    assert log_defects[0].frameworks == ["DPDP", "GDPR"], log_defects[0].frameworks
+
+
+def test_obligations_do_not_double_count() -> None:
+    """One defective line cited by GDPR and DPDP penalises the score once."""
+    from pipeline.score import WEIGHTS, group_defects
+
+    report = asyncio.run(
+        audit_repo(ROOT / "fixtures" / "bad", repo_name="bad",
+                   frameworks=["SOC2", "GDPR", "HIPAA", "DPDP"], llm=MOCK)
+    )
+    defects = group_defects(report.findings)
+    expected = max(0, 100 - sum(WEIGHTS[d.severity] for d in defects))
+    assert score(report.findings)[0] == expected
+    # More obligations than defects is the proof the grouping works.
+    assert len(report.findings) > len(defects), (len(report.findings), len(defects))
+
+
+def test_client_path_and_include_filter() -> None:
+    """Auditing an arbitrary local directory with a path filter (client code)."""
+    report = asyncio.run(
+        audit_repo(ROOT / "fixtures" / "bad", repo_name="client-repo",
+                   frameworks=["DPDP"], llm=MOCK, include=["routes"])
+    )
+    paths = {finding.path for finding in report.findings}
+    assert paths == {"src/routes/admin.ts"}, paths
+    assert report.repo == "client-repo"
 
 
 if __name__ == "__main__":

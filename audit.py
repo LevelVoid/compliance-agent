@@ -2,7 +2,7 @@
 """CLI entrypoint.
 
     python audit.py probe
-    python audit.py run --path fixtures/bad --frameworks SOC2,HIPAA,GDPR
+    python audit.py run --path fixtures/bad --frameworks DPDP,SOC2
     python audit.py run --clone OWASP/NodeGoat --frameworks SOC2,GDPR
     python audit.py run --path fixtures/bad --slow 3      # camera-friendly pacing
 """
@@ -12,9 +12,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import shutil
 import sys
 from pathlib import Path
+
+import httpx
 
 from pipeline.adjudicate import probe as llm_probe
 from pipeline.engine import LLMConfig, audit_repo
@@ -47,9 +48,13 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"cloning {args.clone} …", flush=True)
         clone(f"https://github.com/{args.clone}.git", target)
     else:
-        target = Path(args.path).resolve()
-        repo_name = target.name
+        target = Path(args.path).expanduser().resolve()
+        if not target.is_dir():
+            print(f"not a directory: {target}")
+            return 2
+        repo_name = args.name or target.name
 
+    include = [part.strip() for part in (args.include or "").split(",") if part.strip()]
     report = await audit_repo(
         target,
         repo_name=repo_name,
@@ -57,6 +62,7 @@ async def _run(args: argparse.Namespace) -> int:
         llm=llm,
         max_files=args.max_files or settings.max_files,
         delay=args.slow,
+        include=include or None,
         progress=lambda i, n, path: print(f"  [{i}/{n}] {path}", flush=True),
     )
 
@@ -78,7 +84,9 @@ def main() -> int:
     run = sub.add_parser("run", help="audit a repository")
     run.add_argument("--path", default="fixtures/bad")
     run.add_argument("--clone", default="", help="owner/repo on GitHub (shallow clone)")
-    run.add_argument("--frameworks", default="", help="comma separated, e.g. SOC2,HIPAA")
+    run.add_argument("--frameworks", default="DPDP,SOC2", help="comma separated: SOC2,HIPAA,GDPR,DPDP")
+    run.add_argument("--include", default="", help="only paths containing these substrings, e.g. src,api")
+    run.add_argument("--name", default="", help="display name for the report")
     run.add_argument("--max-files", type=int, default=0)
     run.add_argument("--slow", type=float, default=0.0, help="seconds to pause between files")
 
@@ -86,12 +94,26 @@ def main() -> int:
     if args.command == "probe":
         settings = get_settings()
         if not settings.llm_configured:
-            print("LLM not configured. Set LLM_BASE_URL, LLM_API_KEY, LLM_MODEL in .env")
+            print("LLM not configured. Set LLM_BASE_URL and LLM_MODEL in .env")
+            print("(.env is gitignored - paste values there, not in the terminal history.)")
             print("or run with MOCK_LLM=1 to use the deterministic stand-in.")
             return 1
         try:
             print("endpoint replied:", llm_probe(settings.llm_base_url, settings.llm_api_key, settings.llm_model))
             return 0
+        except httpx.HTTPStatusError as error:
+            status = error.response.status_code
+            print(f"probe failed: HTTP {status}")
+            if status == 401:
+                print("  → the endpoint wants credentials. Add LLM_API_KEY to .env "
+                      "(JarvisLabs Token Factory requires one).")
+            elif status == 404:
+                print("  → base URL or model id is wrong. Base URL usually ends in /v1 "
+                      "and LLM_MODEL must match the catalogue id exactly.")
+            elif status == 400:
+                print("  → endpoint reachable but rejected the request. Check the model id "
+                      f"and whether it supports response_format=json_object.\n  {error.response.text[:300]}")
+            return 1
         except Exception as error:  # noqa: BLE001 - probe is allowed to be blunt
             print(f"probe failed: {type(error).__name__}: {error}")
             return 1

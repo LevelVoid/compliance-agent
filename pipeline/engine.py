@@ -84,9 +84,10 @@ async def audit_repo(
     llm: LLMConfig,
     max_files: int = 12,
     delay: float = 0.0,
+    include: list[str] | None = None,
     progress=None,
 ) -> AuditReport:
-    refs = discover(root, max_files=max_files)
+    refs = discover(root, max_files=max_files, include=include)
     findings, rejections = [], []
     candidates_total = 0
 

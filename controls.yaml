@@ -57,3 +57,57 @@
   detector: weak-crypto
   exposure: "Tiered OCR civil penalties, inflation-adjusted annually; settlement risk"
   remediation: Use Argon2id, scrypt or bcrypt with a per-user salt.
+
+# --- India: Digital Personal Data Protection Act, 2023 -----------------------
+# Same defects as above, different statute. Kept as separate obligations because
+# a report is read by a lawyer, not by a scoring function.
+
+- id: DPDP-S8(5)-secrets-in-logs
+  framework: DPDP
+  control: "S.8(5)"
+  title: Reasonable security safeguards - personal data must not be exposed in logs
+  severity: high
+  languages: [py, js]
+  detector: secrets-in-logs
+  exposure: "Up to INR 250 crore (Schedule, breach of security safeguards)"
+  remediation: Log a request identifier instead of the token or credential value.
+
+- id: DPDP-S6-pii-exfil
+  framework: DPDP
+  control: "S.6"
+  title: Processing requires consent - personal data shared with a third party
+  severity: high
+  languages: [js]
+  detector: pii-exfil
+  exposure: "Up to INR 50 crore (Schedule, residual obligations)"
+  remediation: Send a pseudonymous identifier, or obtain and record consent first.
+
+- id: DPDP-S8(5)-sql-concat
+  framework: DPDP
+  control: "S.8(5)"
+  title: Reasonable security safeguards - query built from untrusted input
+  severity: high
+  languages: [py, js]
+  detector: sql-concat
+  exposure: "Up to INR 250 crore (Schedule, breach of security safeguards)"
+  remediation: Use parameterised queries or an ORM binding.
+
+- id: DPDP-S8(5)-missing-authz
+  framework: DPDP
+  control: "S.8(5)"
+  title: Reasonable security safeguards - privileged route without access control
+  severity: medium
+  languages: [py, js]
+  detector: missing-authz
+  exposure: "Up to INR 250 crore (Schedule, breach of security safeguards)"
+  remediation: Attach the authorisation middleware and assert the caller's role.
+
+- id: DPDP-S8(5)-weak-crypto
+  framework: DPDP
+  control: "S.8(5)"
+  title: Reasonable security safeguards - broken hash on personal data
+  severity: high
+  languages: [py, js]
+  detector: weak-crypto
+  exposure: "Up to INR 250 crore (Schedule, breach of security safeguards)"
+  remediation: Use Argon2id, scrypt or bcrypt with a per-user salt.

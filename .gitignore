@@ -1,7 +1,8 @@
 .env
 .venv/
+bin/
 out/
+repo/
 __pycache__/
 *.pyc
 .DS_Store
-repo/

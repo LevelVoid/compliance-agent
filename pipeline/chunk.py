@@ -73,7 +73,7 @@ def _python_spans(source: str) -> list[tuple[str, int, int]]:
 _FUNC_START = re.compile(
     r"""^\s*(?:
         (?:export\s+)?(?:async\s+)?function\s+(?P<fname>\w+)
-      | (?:export\s+)?(?:const|let|var)\s+(?P<vname>\w+)\s*=\s*(?:async\s*)?\(?
+      | (?:export\s+)?(?:const|let|var)\s+(?P<vname>\w+)\s*=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>)
       | (?P<rname>(?:app|router|server)\.\w+)\s*\(
     )""",
     re.VERBOSE,

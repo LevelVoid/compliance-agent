@@ -39,7 +39,14 @@ SENSITIVE = re.compile(
     r"(token|password|passwd|secret|session|api[_-]?key|creditcard|credit_card|ssn|cookie)",
     re.IGNORECASE,
 )
-INTERPOLATED = re.compile(r"(\$\{|\+\s*\w|%s|%d|f[\"']|\{\w+\})")
+# A sensitive *identifier* must reach the log, not merely appear in the message
+# text. `logger.info("token issue failed", user_id)` is safe and must not fire.
+INTERPOLATED_SENSITIVE = re.compile(
+    r"(\{\s*[^}]*\b" + SENSITIVE.pattern + r"\b[^}]*\}"      # f-string / template literal
+    r"|\+\s*[\w\.\[\]'\"]*\b" + SENSITIVE.pattern + r"\b"    # string concatenation
+    r"|%[sd][^\"']*[\"']\s*,\s*[\w\.\[\]'\"]*\b" + SENSITIVE.pattern + r"\b)",  # %-style args
+    re.IGNORECASE,
+)
 
 SQL_VERB = re.compile(r"\b(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\b", re.IGNORECASE)
 CONCAT = re.compile(r"(\$\{|\+\s*['\"\w]|%s\s*%|\.format\(|\{[a-z_]\w*\})", re.IGNORECASE)
@@ -90,8 +97,10 @@ def detect(chunk: Chunk, controls: list[Control]) -> list[Candidate]:
         window = "\n".join(lines[idx: idx + 3])
 
         control = by_detector.get("secrets-in-logs")
-        if control and LOG_CALL.search(line) and SENSITIVE.search(window) and INTERPOLATED.search(window):
-            add(control, idx, "credential or personal data appears inside a log statement", 3)
+        # Single line on purpose: a 3-line window spills into the following
+        # statement and produces phantom hits on safe code.
+        if control and LOG_CALL.search(line) and INTERPOLATED_SENSITIVE.search(line):
+            add(control, idx, "credential or personal data appears inside a log statement", 1)
 
         control = by_detector.get("sql-concat")
         if control and (NOSQL_WHERE.search(line) or (SQL_VERB.search(line) and CONCAT.search(line))):

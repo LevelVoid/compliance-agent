@@ -67,7 +67,8 @@ def render_terminal(report: AuditReport) -> str:
             "",
         ]
     lines.append(
-        f"{report.candidates} suspects → {len(report.findings)} confirmed, "
+        f"{report.candidates} suspect{'s' if report.candidates != 1 else ''} → "
+        f"{len(report.findings)} confirmed, "
         f"{len(report.rejections)} rejected by adjudication."
     )
     for rejection in report.rejections:

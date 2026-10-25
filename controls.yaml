@@ -1,0 +1,59 @@
+# Compliance control catalog.
+#
+# This is the whole "compliance DB" for v1: versioned reference data, loaded into
+# memory once, keyed by (framework, id). It is deliberately NOT a vector store and
+# NOT a database - control IDs must be cited exactly, never retrieved fuzzily.
+#
+# detector -> maps to a candidate generator in pipeline/detect.py.
+# exposure -> plain-language consequence, shown verbatim in the report. Indicative
+#             only; verify current figures before showing a customer.
+
+- id: GDPR-Art32-secrets-in-logs
+  framework: GDPR
+  control: Art. 32
+  title: Personal data and credentials must not be written to application logs
+  severity: high
+  languages: [py, js]
+  detector: secrets-in-logs
+  exposure: "Up to EUR 20M or 4% of global annual turnover (Art. 83(5))"
+  remediation: Log a request identifier instead of the token or credential value.
+
+- id: GDPR-Art6-pii-exfil
+  framework: GDPR
+  control: Art. 6
+  title: Personal data must not be shared with third parties without a lawful basis
+  severity: high
+  languages: [js]
+  detector: pii-exfil
+  exposure: "Up to EUR 20M or 4% of global annual turnover (Art. 83(5))"
+  remediation: Send a pseudonymous identifier, or gate the call behind explicit consent.
+
+- id: SOC2-CC6.1-sql-concat
+  framework: SOC2
+  control: CC6.1
+  title: Database queries must not be built by string concatenation
+  severity: high
+  languages: [py, js]
+  detector: sql-concat
+  exposure: "No statutory fine; contractual, insurance and audit-failure exposure"
+  remediation: Use parameterised queries or an ORM binding.
+
+- id: SOC2-CC6.6-missing-authz
+  framework: SOC2
+  control: CC6.6
+  title: Privileged routes must enforce an authorisation check
+  severity: medium
+  languages: [py, js]
+  detector: missing-authz
+  exposure: "No statutory fine; contractual, insurance and audit-failure exposure"
+  remediation: Attach the authorisation middleware and assert the caller's role.
+
+- id: HIPAA-164.312-weak-crypto
+  framework: HIPAA
+  control: "164.312(a)(2)(iv)"
+  title: Credentials must not be hashed with a broken algorithm
+  severity: high
+  languages: [py, js]
+  detector: weak-crypto
+  exposure: "Tiered OCR civil penalties, inflation-adjusted annually; settlement risk"
+  remediation: Use Argon2id, scrypt or bcrypt with a per-user salt.

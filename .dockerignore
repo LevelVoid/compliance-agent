@@ -1,0 +1,8 @@
+.venv
+bin
+out
+repo
+.git
+__pycache__
+*.pyc
+.env

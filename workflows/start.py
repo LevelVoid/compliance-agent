@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -22,7 +23,7 @@ from pipeline.engine import head_commit
 from settings import ROOT
 from workflows.audit_workflow import TASK_QUEUE, AuditState, ComplianceAuditWorkflow
 
-ADDRESS = "localhost:7233"
+ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 
 
 async def main() -> None:

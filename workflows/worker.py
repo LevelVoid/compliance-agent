@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import logging
 
 from temporalio.client import Client
@@ -21,7 +22,7 @@ from workflows.audit_workflow import (
     notify,
 )
 
-ADDRESS = "localhost:7233"
+ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 
 
 async def main() -> None:

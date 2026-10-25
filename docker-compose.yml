@@ -1,0 +1,20 @@
+services:
+  temporal:
+    image: temporalio/temporal:1.9.1
+    command: ["server", "start-dev", "--ip", "0.0.0.0"]
+    ports:
+      - "7233:7233"   # frontend
+      - "8233:8233"   # web UI
+
+  worker:
+    build: .
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      MOCK_LLM: "1"          # flip to 0 and mount a real endpoint for live runs
+      NUDGEBEE_MODE: outbox
+      MAX_FILES: "12"
+    volumes:
+      - ./out:/app/out
+      - ./fixtures:/app/fixtures:ro

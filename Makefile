@@ -1,7 +1,13 @@
 PY := .venv/bin/python
 TEMPORAL := ./bin/temporal
 
-.PHONY: setup temporal probe demo demo-fixed audit flow worker clean
+.PHONY: setup temporal probe demo demo-fixed audit flow worker clean dev client-install
+
+dev:              ## start both backend (8000) and client (3000) in sync
+	./start.sh
+
+client-install:   ## install frontend dependencies
+	cd client && npm install
 
 setup:            ## create venv and install deps
 	python3 -m venv .venv && $(PY) -m pip install -q --upgrade pip && $(PY) -m pip install -q -r requirements.txt

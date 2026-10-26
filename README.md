@@ -243,9 +243,10 @@ python audit.py probe
 # 4a. CLI run
 python audit.py run --clone OWASP/NodeGoat --frameworks DPDP,SOC2 --max-files 8
 
-# 4b. Web UI
-uvicorn api:app --reload --port 8000    # terminal 1
-cd client && npm run dev                 # terminal 2 → http://localhost:3000
+# 4b. Web UI (starts backend :8000 + frontend :3000 in sync)
+./start.sh                               # or: make dev  /  npm run dev
+                                         # UI: http://localhost:3000
+                                         # API: http://localhost:8000
 
 # 4c. Durable run (requires Temporal)
 ./bin/temporal server start-dev          # terminal 1
